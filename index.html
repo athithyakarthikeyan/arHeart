@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>3D Heart Viewer with VR</title>
     <style>
         body {
@@ -49,7 +49,7 @@
             flex-wrap: wrap;
         }
 
-        button, #ar-button {
+        button, #vr-button {
             padding: 10px 20px;
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
@@ -60,12 +60,8 @@
             margin-bottom: 5px;
         }
 
-        button:hover, #ar-button:hover {
+        button:hover, #vr-button:hover {
             background-color: rgba(50, 50, 50, 0.7);
-        }
-
-        #ar-button {
-            border-color: #888;
         }
 
         .instructions {
@@ -79,7 +75,7 @@
             z-index: 100;
         }
 
-        #ARButton {
+        #VRButton {
             position: absolute;
             bottom: 30px;
             right: 30px;
@@ -95,7 +91,8 @@
             z-index: 999;
             cursor: pointer;
         }
-        #ARButton:hover {
+
+        #VRButton:hover {
             opacity: 1.0;
         }
     </style>
@@ -105,7 +102,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js"></script>
-
 </head>
 <body>
     <div id="canvas-container"></div>
@@ -113,6 +109,7 @@
     <div class="controls">
         <button id="rotate-toggle">Pause Rotation</button>
         <button id="lighting-toggle">Toggle Lighting</button>
+        <button id="reset-view">Reset View</button>
     </div>
 
     <div class="instructions">
@@ -179,7 +176,11 @@
             window.addEventListener('resize', onWindowResize);
             setupControls();
 
-            document.body.appendChild(ARButton.createButton(renderer));
+            const vrButton = ARButton.createButton(renderer);
+            vrButton.id = 'VRButton';
+            vrButton.innerText = 'Enter VR';
+            document.body.appendChild(vrButton);
+
             renderer.setAnimationLoop(renderLoop);
             setupFallbackTimer();
         }
@@ -210,42 +211,33 @@
                             'heart.obj',
                             function(object) {
                                 heart = object;
-
                                 const textureLoader = new THREE.TextureLoader();
-                                textureLoader.load( 'Heart_S2.jpg', function (texture) {
-                                    heart.traverse(function (child) {
+                                textureLoader.load('Heart_S2.jpg', function(texture) {
+                                    heart.traverse(function(child) {
                                         if (child instanceof THREE.Mesh) {
-                                            if (child.material) {
-                                                child.material.map = texture;
-                                                child.material.needsUpdate = true;
-                                            } else {
-                                                child.material = new THREE.MeshPhongMaterial({ map: texture });
-                                            }
+                                            child.material = child.material || new THREE.MeshPhongMaterial();
+                                            child.material.map = texture;
+                                            child.material.needsUpdate = true;
                                         }
                                     });
 
-                                    const box = new THREE.Box3().setFromObject(heart);
-                                    const center = box.getCenter(new THREE.Vector3());
-                                    heart.position.sub(center);
-                                    const size = box.getSize(new THREE.Vector3());
-                                    const maxDim = Math.max(size.x, size.y, size.z);
-                                    const scale = 1.5 / maxDim;
-                                    heart.scale.set(scale, scale, scale);
-                                    heart.position.set(0, -0.2, -1.5);
-
+                                    centerAndScaleHeart();
                                     scene.add(heart);
                                     hideLoadingScreen();
-                                }, undefined, function (err) {
+                                }, undefined, function(err) {
                                     console.error('Error loading texture:', err);
                                     handleLoadingError();
                                 });
                             },
-                            (xhr) => console.log(`Loading model: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
-                            (error) => { console.error('Error loading OBJ:', error); handleLoadingError(); }
+                            xhr => console.log(`Loading model: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
+                            error => {
+                                console.error('Error loading OBJ:', error);
+                                handleLoadingError();
+                            }
                         );
                     },
-                    (xhr) => console.log(`Loading materials: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
-                    (error) => {
+                    xhr => console.log(`Loading materials: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
+                    error => {
                         console.error('Error loading MTL:', error);
                         loadObjWithoutMaterialsWithTexture('Heart_D3.jpg');
                     }
@@ -260,7 +252,7 @@
             const objLoader = new THREE.OBJLoader();
             const textureLoader = new THREE.TextureLoader();
 
-            textureLoader.load(texturePath, function (texture) {
+            textureLoader.load(texturePath, function(texture) {
                 objLoader.load(
                     'heart.obj',
                     function(object) {
@@ -270,25 +262,31 @@
                                 child.material = new THREE.MeshPhongMaterial({ map: texture });
                             }
                         });
-                        const box = new THREE.Box3().setFromObject(heart);
-                        const center = box.getCenter(new THREE.Vector3());
-                        heart.position.sub(center);
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        const scale = 1.5 / maxDim;
-                        heart.scale.set(scale, scale, scale);
-                        heart.position.set(0, -0.2, -1.5);
-
+                        centerAndScaleHeart();
                         scene.add(heart);
                         hideLoadingScreen();
                     },
                     null,
-                    function(error) { console.error('Error loading OBJ:', error); handleLoadingError(); }
+                    function(error) {
+                        console.error('Error loading OBJ:', error);
+                        handleLoadingError();
+                    }
                 );
-            }, undefined, function (err) {
+            }, undefined, function(err) {
                 console.error('Error loading texture:', err);
                 handleLoadingError();
             });
+        }
+
+        function centerAndScaleHeart() {
+            const box = new THREE.Box3().setFromObject(heart);
+            const center = box.getCenter(new THREE.Vector3());
+            heart.position.sub(center);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 1.5 / maxDim;
+            heart.scale.set(scale, scale, scale);
+            heart.position.set(0, -0.2, -1.5);
         }
 
         function hideLoadingScreen() {
@@ -312,21 +310,29 @@
 
             lightingToggle.addEventListener('click', function() {
                 if (lightMode === 'normal') {
-                    ambientLight.intensity = 0.3; directionalLight1.intensity = 1.0; directionalLight2.intensity = 0.8; lightMode = 'high-contrast';
+                    ambientLight.intensity = 0.3;
+                    directionalLight1.intensity = 1.0;
+                    directionalLight2.intensity = 0.8;
+                    lightMode = 'high-contrast';
                 } else {
-                    ambientLight.intensity = 0.5; directionalLight1.intensity = 0.8; directionalLight2.intensity = 0.6; lightMode = 'normal';
+                    ambientLight.intensity = 0.5;
+                    directionalLight1.intensity = 0.8;
+                    directionalLight2.intensity = 0.6;
+                    lightMode = 'normal';
                 }
             });
 
-            resetViewBtn.addEventListener('click', function() {
-                if (!renderer.xr.isPresenting) {
-                    controls.target.set(0, 0, 0);
-                    camera.position.set(0, 0, 5);
-                    controls.update();
-                } else {
-                    console.log("Reset View is disabled in AR mode.");
-                }
-            });
+            if (resetViewBtn) {
+                resetViewBtn.addEventListener('click', function() {
+                    if (!renderer.xr.isPresenting) {
+                        controls.target.set(0, 0, 0);
+                        camera.position.set(0, 0, 5);
+                        controls.update();
+                    } else {
+                        console.log("Reset View is disabled in VR mode.");
+                    }
+                });
+            }
         }
 
         function onWindowResize() {
@@ -337,11 +343,9 @@
 
         function renderLoop() {
             controls.update();
-
             if (isRotating && heart) {
                 heart.rotation.y += 0.005;
             }
-
             renderer.render(scene, camera);
         }
 
@@ -354,7 +358,6 @@
         }
 
         window.addEventListener('load', init);
-
     </script>
 </body>
 </html>
