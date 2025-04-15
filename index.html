@@ -1,189 +1,153 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Heart AR with Hiro Marker</title>
+    <title>Simple AR Heart for iOS</title>
+    <!-- Include the AR.js and A-Frame libraries from CDN -->
+    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
         body {
             margin: 0;
-            padding: 0;
             overflow: hidden;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-        }
-        
-        #loading-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
-            color: white;
+            z-index: 999;
             font-family: Arial, sans-serif;
-            transition: opacity 0.5s;
+        }
+        
+        .marker-guide {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;
+            height: 150px;
+            background-color: white;
+            padding: 5px;
+            border-radius: 5px;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .marker-guide img {
+            max-width: 100%;
+            max-height: 100%;
         }
         
         .instructions {
             position: fixed;
             top: 20px;
             left: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
+            max-width: 250px;
+            background-color: rgba(0,0,0,0.7);
             color: white;
-            padding: 15px;
+            padding: 10px;
             border-radius: 5px;
-            max-width: 300px;
-            z-index: 100;
             font-family: Arial, sans-serif;
-        }
-        
-        .marker-image {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 100px;
-            height: 100px;
-            background-color: white;
-            border: 2px solid black;
-            border-radius: 5px;
-            z-index: 100;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .marker-image img {
-            width: 90%;
-            height: 90%;
-            object-fit: contain;
+            z-index: 10;
         }
     </style>
-    
-    <!-- Include AR.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.0.8/aframe/build/aframe-ar.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.2.0/aframe.min.js"></script>
 </head>
 <body>
-    <div id="loading-screen">
-        <h2>Loading AR Heart Model</h2>
+    <div id="loading">
+        <h2>Loading AR Experience</h2>
         <p>Please allow camera access when prompted</p>
+        <p>If nothing happens after granting permissions, try refreshing the page</p>
     </div>
     
     <div class="instructions">
-        <h3>Heart AR with Hiro Marker</h3>
-        <p>1. Print or display the Hiro marker</p>
-        <p>2. Point your camera at the marker</p>
-        <p>3. The 3D heart model will appear</p>
-        <p>4. Move the marker to manipulate the heart</p>
+        <h3>AR Heart Instructions</h3>
+        <p>Point your camera at the Hiro marker (shown in bottom right)</p>
+        <p>The 3D heart will appear above the marker</p>
     </div>
     
-    <div class="marker-image">
-        <img src="https://stemkoski.github.io/AR-Examples/markers/hiro.png" alt="Hiro Marker">
+    <div class="marker-guide">
+        <img src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/data/images/hiro.png" alt="Hiro Marker">
     </div>
-
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
-        <!-- Create a plane with a heart texture for a simpler approach -->
-        <a-entity id="heartModel" scale="0.5 0.5 0.5" position="0 0.5 0" rotation="-90 0 0">
-            <a-obj-model src="heart.obj" mtl="heart.mtl"></a-obj-model>
-        </a-entity>
+    
+    <!-- A-Frame scene with AR.js -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        renderer="logarithmicDepthBuffer: true;">
         
-        <!-- Use the standard Hiro marker -->
+        <!-- Use a simple shape instead of OBJ model for better compatibility -->
         <a-marker preset="hiro">
-            <!-- Heart model will be positioned relative to this marker -->
-            <a-entity id="markerHeartContainer"></a-entity>
+            <a-entity
+                position="0 1.5 0"
+                rotation="0 0 0"
+                scale="0.5 0.5 0.5">
+                <!-- Use a simple heart shape with a red material -->
+                <a-torus-knot
+                    radius="0.8"
+                    radius-tubular="0.4"
+                    p="2"
+                    q="3"
+                    material="color: red; metalness: 0.5; roughness: 0.2;">
+                    <a-animation
+                        attribute="rotation"
+                        dur="10000"
+                        to="0 360 0"
+                        repeat="indefinite"
+                        easing="linear">
+                    </a-animation>
+                </a-torus-knot>
+            </a-entity>
         </a-marker>
         
-        <!-- Camera with no cursor -->
+        <!-- Camera -->
         <a-entity camera></a-entity>
     </a-scene>
     
     <script>
-        // Wait for the A-Frame scene to load
         document.addEventListener('DOMContentLoaded', function() {
-            const loadingScreen = document.getElementById('loading-screen');
             const scene = document.querySelector('a-scene');
+            const loading = document.getElementById('loading');
             
-            // When the scene is loaded, hide the loading screen
+            // Hide loading screen when A-Frame scene is loaded
             scene.addEventListener('loaded', function() {
-                setTimeout(() => {
-                    loadingScreen.style.opacity = 0;
-                    setTimeout(() => {
-                        loadingScreen.style.display = 'none';
-                    }, 500);
-                }, 1000); // Small delay to ensure AR.js is initialized
+                loading.style.display = 'none';
             });
             
-            // When the marker is found, move the heart model to the marker container
-            const marker = document.querySelector('a-marker');
-            const heartModel = document.getElementById('heartModel');
-            const markerContainer = document.getElementById('markerHeartContainer');
-            
-            marker.addEventListener('markerFound', function() {
-                console.log('Marker found!');
-                // Clone the heart model and add it to the marker container
-                if (!markerContainer.hasChildNodes() && heartModel) {
-                    // Move the heart model to be a child of the marker container
-                    markerContainer.appendChild(heartModel);
-                    
-                    // Add animation to make the heart beat/pulse
-                    heartModel.setAttribute('animation', {
-                        property: 'scale',
-                        dir: 'alternate',
-                        dur: 1000,
-                        easing: 'easeInOutQuad',
-                        loop: true,
-                        to: '0.55 0.55 0.55'
-                    });
-                    
-                    // Add rotation animation
-                    heartModel.setAttribute('animation__rotation', {
-                        property: 'rotation',
-                        dur: 10000,
-                        easing: 'linear',
-                        loop: true,
-                        to: '-90 360 0'
-                    });
+            // If camera isn't working after 10 seconds, show a message
+            setTimeout(function() {
+                if (loading.style.display !== 'none') {
+                    loading.innerHTML = `
+                        <h2>Camera Access Issue</h2>
+                        <p>There might be a problem with camera access on your device.</p>
+                        <p>Try these steps:</p>
+                        <ol>
+                            <li>Make sure Safari has camera access in Settings</li>
+                            <li>Ensure you're using iOS 11 or later</li>
+                            <li>Try opening this page in a new Safari tab</li>
+                            <li>Make sure your page is served over HTTPS</li>
+                        </ol>
+                        <button onclick="window.location.reload()">Reload Page</button>
+                    `;
                 }
-            });
-            
-            marker.addEventListener('markerLost', function() {
-                console.log('Marker lost!');
-            });
-            
-            // Handle errors - show a message if AR fails to initialize
-            scene.addEventListener('arError', function(event) {
-                loadingScreen.innerHTML = `
-                    <h2>AR Error</h2>
-                    <p>There was a problem initializing AR:</p>
-                    <p>${event.detail.error}</p>
-                    <p>Make sure your device supports AR and you've granted camera permissions.</p>
-                `;
-            });
+            }, 10000);
         });
-        
-        // Fallback timer in case loading takes too long
-        setTimeout(() => {
-            const loadingScreen = document.getElementById('loading-screen');
-            if (loadingScreen.style.display !== 'none') {
-                loadingScreen.innerHTML = `
-                    <h2>Loading seems slow</h2>
-                    <p>If you've granted camera access but nothing is happening:</p>
-                    <ul>
-                        <li>Make sure you're using a modern browser (Safari on iOS)</li>
-                        <li>Check that your device supports AR</li>
-                        <li>Try reloading the page</li>
-                    </ul>
-                    <button onclick="window.location.reload()">Retry</button>
-                `;
-            }
-        }, 15000);
     </script>
 </body>
 </html>
