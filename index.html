@@ -3,25 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Heart Viewer with AR for iOS</title>
+    <title>3D Heart AR with Hiro Marker</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #000;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
-
-        #canvas-container {
+            overflow: hidden;
             position: fixed;
-            top: 0;
-            left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1;
         }
-
+        
         #loading-screen {
             position: fixed;
             top: 0;
@@ -34,349 +26,164 @@
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            color: white;
+            font-family: Arial, sans-serif;
             transition: opacity 0.5s;
         }
-
-        .controls {
-            position: fixed;
-            bottom: 20px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            z-index: 100;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 10px 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: 1px solid #555;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        button:hover {
-            background-color: rgba(50, 50, 50, 0.7);
-        }
-
-        #ar-button {
-            padding: 12px 24px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: 1px solid #888;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-bottom: 5px;
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 999;
-        }
-
-        #ar-button:hover {
-            background-color: rgba(50, 50, 50, 0.7);
-        }
-
+        
         .instructions {
             position: fixed;
             top: 20px;
             left: 20px;
             background-color: rgba(0, 0, 0, 0.7);
+            color: white;
             padding: 15px;
             border-radius: 5px;
             max-width: 300px;
             z-index: 100;
+            font-family: Arial, sans-serif;
+        }
+        
+        .marker-image {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            background-color: white;
+            border: 2px solid black;
+            border-radius: 5px;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .marker-image img {
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
         }
     </style>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+    
+    <!-- Include AR.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.0.8/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.2.0/aframe.min.js"></script>
 </head>
 <body>
-    <div id="canvas-container"></div>
-
-    <div class="controls">
-        <button id="rotate-toggle">Pause Rotation</button>
-        <button id="lighting-toggle">Toggle Lighting</button>
-        <button id="reset-view">Reset View</button>
-    </div>
-
-    <div class="instructions">
-        <h3>3D Heart Model Viewer</h3>
-        <p>• Touch and drag to rotate</p>
-        <p>• Pinch to zoom in/out</p>
-        <p>• Use AR button (if available) to view in AR</p>
-    </div>
-
     <div id="loading-screen">
-        <h2>Loading 3D Heart Model</h2>
-        <p>Please wait...</p>
+        <h2>Loading AR Heart Model</h2>
+        <p>Please allow camera access when prompted</p>
+    </div>
+    
+    <div class="instructions">
+        <h3>Heart AR with Hiro Marker</h3>
+        <p>1. Print or display the Hiro marker</p>
+        <p>2. Point your camera at the marker</p>
+        <p>3. The 3D heart model will appear</p>
+        <p>4. Move the marker to manipulate the heart</p>
+    </div>
+    
+    <div class="marker-image">
+        <img src="https://stemkoski.github.io/AR-Examples/markers/hiro.png" alt="Hiro Marker">
     </div>
 
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
+        <!-- Create a plane with a heart texture for a simpler approach -->
+        <a-entity id="heartModel" scale="0.5 0.5 0.5" position="0 0.5 0" rotation="-90 0 0">
+            <a-obj-model src="heart.obj" mtl="heart.mtl"></a-obj-model>
+        </a-entity>
+        
+        <!-- Use the standard Hiro marker -->
+        <a-marker preset="hiro">
+            <!-- Heart model will be positioned relative to this marker -->
+            <a-entity id="markerHeartContainer"></a-entity>
+        </a-marker>
+        
+        <!-- Camera with no cursor -->
+        <a-entity camera></a-entity>
+    </a-scene>
+    
     <script>
-        let scene, camera, renderer, controls, heart;
-        let isRotating = true;
-        let lightMode = 'normal';
-
-        let ambientLight, directionalLight1, directionalLight2;
-
-        const container = document.getElementById('canvas-container');
-        const loadingScreen = document.getElementById('loading-screen');
-        const rotateToggle = document.getElementById('rotate-toggle');
-        const lightingToggle = document.getElementById('lighting-toggle');
-        const resetViewBtn = document.getElementById('reset-view');
-
-        // iOS detection function
-        function isIOS() {
-            return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        }
-
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000);
-
-            camera = new THREE.PerspectiveCamera(
-                70,
-                window.innerWidth / window.innerHeight,
-                0.01,
-                100
-            );
-            camera.position.z = 5;
-
-            renderer = new THREE.WebGLRenderer({
-                antialias: true,
-                alpha: true
-            });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.shadowMap.enabled = true;
-
-            container.appendChild(renderer.domElement);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.screenSpacePanning = false;
-            controls.minDistance = 0.5;
-            controls.maxDistance = 10;
-            controls.target.set(0, 0, 0);
-
-            setupLighting();
-            loadHeartModel();
-            setupARButton();
-
-            window.addEventListener('resize', onWindowResize);
-            setupControls();
+        // Wait for the A-Frame scene to load
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingScreen = document.getElementById('loading-screen');
+            const scene = document.querySelector('a-scene');
             
-            animate();
-            setupFallbackTimer();
-        }
-
-        function setupLighting() {
-            ambientLight = new THREE.AmbientLight(0xcccccc, 0.5);
-            scene.add(ambientLight);
-
-            directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight1.position.set(1, 1, 1);
-            scene.add(directionalLight1);
-
-            directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.6);
-            directionalLight2.position.set(-1, 0.5, -1);
-            scene.add(directionalLight2);
-        }
-
-        function loadHeartModel() {
-            try {
-                const mtlLoader = new THREE.MTLLoader();
-                mtlLoader.load(
-                    'heart.mtl',
-                    function(materials) {
-                        materials.preload();
-                        const objLoader = new THREE.OBJLoader();
-                        objLoader.setMaterials(materials);
-                        objLoader.load(
-                            'heart.obj',
-                            function(object) {
-                                heart = object;
-
-                                const textureLoader = new THREE.TextureLoader();
-                                textureLoader.load( 'Heart_S2.jpg', function (texture) {
-                                    heart.traverse(function (child) {
-                                        if (child instanceof THREE.Mesh) {
-                                            if (child.material) {
-                                                child.material.map = texture;
-                                                child.material.needsUpdate = true;
-                                            } else {
-                                                child.material = new THREE.MeshPhongMaterial({ map: texture });
-                                            }
-                                        }
-                                    });
-
-                                    const box = new THREE.Box3().setFromObject(heart);
-                                    const center = box.getCenter(new THREE.Vector3());
-                                    heart.position.sub(center);
-                                    const size = box.getSize(new THREE.Vector3());
-                                    const maxDim = Math.max(size.x, size.y, size.z);
-                                    const scale = 1.5 / maxDim;
-                                    heart.scale.set(scale, scale, scale);
-                                    heart.position.set(0, -0.2, 0);
-
-                                    scene.add(heart);
-                                    hideLoadingScreen();
-                                }, undefined, function (err) {
-                                    console.error('Error loading texture:', err);
-                                    handleLoadingError();
-                                });
-                            },
-                            (xhr) => console.log(`Loading model: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
-                            (error) => { console.error('Error loading OBJ:', error); handleLoadingError(); }
-                        );
-                    },
-                    (xhr) => console.log(`Loading materials: ${Math.round((xhr.loaded / xhr.total) * 100)}% complete`),
-                    (error) => {
-                        console.error('Error loading MTL:', error);
-                        loadObjWithoutMaterialsWithTexture('Heart_D3.jpg');
-                    }
-                );
-            } catch (error) {
-                console.error('Exception in model loading:', error);
-                handleLoadingError();
-            }
-        }
-
-        function loadObjWithoutMaterialsWithTexture(texturePath) {
-            const objLoader = new THREE.OBJLoader();
-            const textureLoader = new THREE.TextureLoader();
-
-            textureLoader.load(texturePath, function (texture) {
-                objLoader.load(
-                    'heart.obj',
-                    function(object) {
-                        heart = object;
-                        heart.traverse(function(child) {
-                            if (child instanceof THREE.Mesh) {
-                                child.material = new THREE.MeshPhongMaterial({ map: texture });
-                            }
-                        });
-                        const box = new THREE.Box3().setFromObject(heart);
-                        const center = box.getCenter(new THREE.Vector3());
-                        heart.position.sub(center);
-                        const size = box.getSize(new THREE.Vector3());
-                        const maxDim = Math.max(size.x, size.y, size.z);
-                        const scale = 1.5 / maxDim;
-                        heart.scale.set(scale, scale, scale);
-                        heart.position.set(0, -0.2, 0);
-
-                        scene.add(heart);
-                        hideLoadingScreen();
-                    },
-                    null,
-                    function(error) { console.error('Error loading OBJ:', error); handleLoadingError(); }
-                );
-            }, undefined, function (err) {
-                console.error('Error loading texture:', err);
-                handleLoadingError();
+            // When the scene is loaded, hide the loading screen
+            scene.addEventListener('loaded', function() {
+                setTimeout(() => {
+                    loadingScreen.style.opacity = 0;
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }, 1000); // Small delay to ensure AR.js is initialized
             });
-        }
-
-        function setupARButton() {
-            // Only add AR button for iOS devices - using AR Quick Look
-            if (isIOS()) {
-                const arButton = document.createElement('button');
-                arButton.id = 'ar-button';
-                arButton.textContent = 'View in AR';
-                arButton.addEventListener('click', () => {
-                    // Redirect to AR Quick Look with the USDZ file
-                    window.location.href = 'heart.usdz';
-                });
-                document.body.appendChild(arButton);
-                
-                // Update instructions for iOS
-                const instructions = document.querySelector('.instructions');
-                const arNote = document.createElement('p');
-                arNote.innerHTML = '<strong>Note:</strong> You\'ll need the heart.usdz file for AR viewing on iOS.';
-                instructions.appendChild(arNote);
-            }
-        }
-
-        function hideLoadingScreen() {
-            loadingScreen.style.opacity = 0;
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 500);
-        }
-
-        function handleLoadingError() {
+            
+            // When the marker is found, move the heart model to the marker container
+            const marker = document.querySelector('a-marker');
+            const heartModel = document.getElementById('heartModel');
+            const markerContainer = document.getElementById('markerHeartContainer');
+            
+            marker.addEventListener('markerFound', function() {
+                console.log('Marker found!');
+                // Clone the heart model and add it to the marker container
+                if (!markerContainer.hasChildNodes() && heartModel) {
+                    // Move the heart model to be a child of the marker container
+                    markerContainer.appendChild(heartModel);
+                    
+                    // Add animation to make the heart beat/pulse
+                    heartModel.setAttribute('animation', {
+                        property: 'scale',
+                        dir: 'alternate',
+                        dur: 1000,
+                        easing: 'easeInOutQuad',
+                        loop: true,
+                        to: '0.55 0.55 0.55'
+                    });
+                    
+                    // Add rotation animation
+                    heartModel.setAttribute('animation__rotation', {
+                        property: 'rotation',
+                        dur: 10000,
+                        easing: 'linear',
+                        loop: true,
+                        to: '-90 360 0'
+                    });
+                }
+            });
+            
+            marker.addEventListener('markerLost', function() {
+                console.log('Marker lost!');
+            });
+            
+            // Handle errors - show a message if AR fails to initialize
+            scene.addEventListener('arError', function(event) {
+                loadingScreen.innerHTML = `
+                    <h2>AR Error</h2>
+                    <p>There was a problem initializing AR:</p>
+                    <p>${event.detail.error}</p>
+                    <p>Make sure your device supports AR and you've granted camera permissions.</p>
+                `;
+            });
+        });
+        
+        // Fallback timer in case loading takes too long
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loading-screen');
             if (loadingScreen.style.display !== 'none') {
-                loadingScreen.innerHTML = `<h2>Error Loading Model</h2>
-                <p>Check console (F12) for details. Ensure heart.obj, heart.mtl, and Heart_D3.jpg are present.</p>
-                <button onclick="window.location.reload()">Retry</button>`;
+                loadingScreen.innerHTML = `
+                    <h2>Loading seems slow</h2>
+                    <p>If you've granted camera access but nothing is happening:</p>
+                    <ul>
+                        <li>Make sure you're using a modern browser (Safari on iOS)</li>
+                        <li>Check that your device supports AR</li>
+                        <li>Try reloading the page</li>
+                    </ul>
+                    <button onclick="window.location.reload()">Retry</button>
+                `;
             }
-        }
-
-        function setupControls() {
-            rotateToggle.addEventListener('click', function() {
-                isRotating = !isRotating;
-                rotateToggle.textContent = isRotating ? 'Pause Rotation' : 'Resume Rotation';
-            });
-
-            lightingToggle.addEventListener('click', function() {
-                if (lightMode === 'normal') {
-                    ambientLight.intensity = 0.3;
-                    directionalLight1.intensity = 1.0;
-                    directionalLight2.intensity = 0.8;
-                    lightMode = 'high-contrast';
-                } else {
-                    ambientLight.intensity = 0.5;
-                    directionalLight1.intensity = 0.8;
-                    directionalLight2.intensity = 0.6;
-                    lightMode = 'normal';
-                }
-            });
-
-            resetViewBtn.addEventListener('click', function() {
-                controls.target.set(0, 0, 0);
-                camera.position.set(0, 0, 5);
-                controls.update();
-            });
-        }
-
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-
-            if (isRotating && heart) {
-                heart.rotation.y += 0.005;
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        function setupFallbackTimer() {
-            setTimeout(() => {
-                if (loadingScreen.style.display !== 'none' && !heart) {
-                    loadingScreen.innerHTML = `<h2>Loading seems stuck</h2>
-                    <p>Check console (F12) and network tab for errors. Ensure model files are accessible.</p>
-                    <button onclick="window.location.reload()">Retry</button>`;
-                }
-            }, 20000);
-        }
-
-        window.addEventListener('load', init);
+        }, 15000);
     </script>
 </body>
 </html>
