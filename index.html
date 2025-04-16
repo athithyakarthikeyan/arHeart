@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>3D Heart Viewer with VR</title>
+    <title>AR Heart Viewer for Mobile</title>
     <style>
         body {
             margin: 0;
@@ -11,6 +11,10 @@
             background-color: #000;
             color: white;
             font-family: Arial, sans-serif;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         #canvas-container {
@@ -47,20 +51,22 @@
             gap: 10px;
             z-index: 100;
             flex-wrap: wrap;
+            padding: 0 10px;
         }
 
-        button, #vr-button {
-            padding: 10px 20px;
+        button {
+            padding: 12px 16px;
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
             border: 1px solid #555;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
             margin-bottom: 5px;
+            min-width: 44px; /* Increased touch target */
         }
 
-        button:hover, #vr-button:hover {
+        button:hover, button:active {
             background-color: rgba(50, 50, 50, 0.7);
         }
 
@@ -71,52 +77,86 @@
             background-color: rgba(0, 0, 0, 0.7);
             padding: 15px;
             border-radius: 5px;
-            max-width: 300px;
+            max-width: 80%;
             z-index: 100;
+            font-size: 14px;
         }
 
-        #VRButton {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            padding: 12px 24px;
-            border: 1px solid #fff;
-            border-radius: 4px;
-            background: rgba(0,0,0,0.1);
-            color: #fff;
-            font: normal 13px sans-serif;
-            text-align: center;
-            opacity: 0.5;
-            outline: none;
+        #ar-button {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
             z-index: 999;
-            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
 
-        #VRButton:hover {
-            opacity: 1.0;
+        #ar-button:active {
+            background-color: #3367d6;
+            transform: translateX(-50%) scale(0.98);
+        }
+
+        .ar-overlay {
+            position: fixed;
+            bottom: 130px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            font-size: 14px;
+            padding: 10px;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 99;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .controls {
+                bottom: 10px;
+            }
+            
+            button {
+                padding: 10px 14px;
+                font-size: 14px;
+            }
+            
+            .instructions {
+                font-size: 12px;
+                top: 10px;
+                left: 10px;
+                padding: 10px;
+            }
         }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r132/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.0/examples/js/loaders/MTLLoader.js"></script>
 </head>
 <body>
     <div id="canvas-container"></div>
 
     <div class="controls">
-        <button id="rotate-toggle">Pause Rotation</button>
-        <button id="lighting-toggle">Toggle Lighting</button>
-        <button id="reset-view">Reset View</button>
+        <button id="rotate-toggle"><span id="rotate-icon">⏸️</span></button>
+        <button id="lighting-toggle">💡</button>
+        <button id="reset-view">↻</button>
+        <button id="scale-up">+</button>
+        <button id="scale-down">-</button>
     </div>
 
     <div class="instructions">
-        <h3>VR 3D Heart Model Viewer</h3>
-        <p>• Left-click + drag to rotate</p>
-        <p>• Right-click + drag to pan</p>
-        <p>• Scroll to zoom in/out</p>
+        <h3>AR Heart Model</h3>
+        <p>• Tap "Enter AR" to place the heart in your environment</p>
+        <p>• Use pinch gesture to scale in AR mode</p>
+        <p>• Use buttons below to control rotation and lighting</p>
     </div>
 
     <div id="loading-screen">
@@ -124,12 +164,21 @@
         <p>Please wait...</p>
     </div>
 
+    <button id="ar-button" style="display: none;">Enter AR</button>
+    <div class="ar-overlay">Move your device to detect surfaces</div>
+
     <script type="module">
-        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/ARButton.js';
+        import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.132.0/examples/jsm/webxr/ARButton.js';
 
         let scene, camera, renderer, controls, heart;
         let isRotating = true;
         let lightMode = 'normal';
+        let currentScale = 1.0;
+        let reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        let touchStartX = 0;
+        let touchStartY = 0;
 
         let ambientLight, directionalLight1, directionalLight2;
 
@@ -138,6 +187,11 @@
         const rotateToggle = document.getElementById('rotate-toggle');
         const lightingToggle = document.getElementById('lighting-toggle');
         const resetViewBtn = document.getElementById('reset-view');
+        const scaleUpBtn = document.getElementById('scale-up');
+        const scaleDownBtn = document.getElementById('scale-down');
+        const arButton = document.getElementById('ar-button');
+        const arOverlay = document.querySelector('.ar-overlay');
+        const rotateIcon = document.getElementById('rotate-icon');
 
         function init() {
             scene = new THREE.Scene();
@@ -172,14 +226,11 @@
 
             setupLighting();
             loadHeartModel();
+            setupXR();
 
             window.addEventListener('resize', onWindowResize);
             setupControls();
-
-            const vrButton = ARButton.createButton(renderer);
-            vrButton.id = 'VRButton';
-            vrButton.innerText = 'Enter VR';
-            document.body.appendChild(vrButton);
+            setupTouchEvents();
 
             renderer.setAnimationLoop(renderLoop);
             setupFallbackTimer();
@@ -218,6 +269,8 @@
                                             child.material = child.material || new THREE.MeshPhongMaterial();
                                             child.material.map = texture;
                                             child.material.needsUpdate = true;
+                                            child.castShadow = true;
+                                            child.receiveShadow = true;
                                         }
                                     });
 
@@ -260,6 +313,8 @@
                         heart.traverse(function(child) {
                             if (child instanceof THREE.Mesh) {
                                 child.material = new THREE.MeshPhongMaterial({ map: texture });
+                                child.castShadow = true;
+                                child.receiveShadow = true;
                             }
                         });
                         centerAndScaleHeart();
@@ -286,26 +341,34 @@
             const maxDim = Math.max(size.x, size.y, size.z);
             const scale = 1.5 / maxDim;
             heart.scale.set(scale, scale, scale);
-            heart.position.set(0, -0.2, -1.5);
+            heart.position.set(0, -0.2, -1);
+            
+            // Create a group for the heart to manage its position in AR
+            const heartGroup = new THREE.Group();
+            scene.add(heartGroup);
+            heartGroup.add(heart);
         }
 
         function hideLoadingScreen() {
             loadingScreen.style.opacity = 0;
             setTimeout(() => {
                 loadingScreen.style.display = 'none';
+                if (isArSupported()) {
+                    arButton.style.display = 'block';
+                }
             }, 500);
         }
 
         function handleLoadingError() {
             if (loadingScreen.style.display !== 'none') {
-                loadingScreen.innerHTML = `<h2>Error Loading Model</h2><p>Check console (F12) for details. Ensure heart.obj, heart.mtl, and Heart_D3.jpg are present.</p><button onclick="window.location.reload()">Retry</button>`;
+                loadingScreen.innerHTML = `<h2>Error Loading Model</h2><p>Check if heart.obj, heart.mtl, and Heart_D3.jpg are present.</p><button onclick="window.location.reload()">Retry</button>`;
             }
         }
 
         function setupControls() {
             rotateToggle.addEventListener('click', function() {
                 isRotating = !isRotating;
-                rotateToggle.textContent = isRotating ? 'Pause Rotation' : 'Resume Rotation';
+                rotateIcon.textContent = isRotating ? '⏸️' : '▶️';
             });
 
             lightingToggle.addEventListener('click', function() {
@@ -314,24 +377,56 @@
                     directionalLight1.intensity = 1.0;
                     directionalLight2.intensity = 0.8;
                     lightMode = 'high-contrast';
+                    lightingToggle.textContent = '💡+';
                 } else {
                     ambientLight.intensity = 0.5;
                     directionalLight1.intensity = 0.8;
                     directionalLight2.intensity = 0.6;
                     lightMode = 'normal';
+                    lightingToggle.textContent = '💡';
                 }
             });
 
-            if (resetViewBtn) {
-                resetViewBtn.addEventListener('click', function() {
-                    if (!renderer.xr.isPresenting) {
-                        controls.target.set(0, 0, 0);
-                        camera.position.set(0, 0, 5);
-                        controls.update();
-                    } else {
-                        console.log("Reset View is disabled in VR mode.");
+            resetViewBtn.addEventListener('click', function() {
+                if (!renderer.xr.isPresenting) {
+                    controls.target.set(0, 0, 0);
+                    camera.position.set(0, 0, 5);
+                    controls.update();
+                    if (heart) {
+                        heart.position.set(0, -0.2, -1);
+                        heart.rotation.set(0, 0, 0);
+                        setHeartScale(1.0);
                     }
-                });
+                }
+            });
+            
+            scaleUpBtn.addEventListener('click', function() {
+                if (heart) {
+                    currentScale *= 1.2;
+                    setHeartScale(currentScale);
+                }
+            });
+            
+            scaleDownBtn.addEventListener('click', function() {
+                if (heart) {
+                    currentScale *= 0.8;
+                    setHeartScale(currentScale);
+                }
+            });
+            
+            arButton.addEventListener('click', function() {
+                enterAR();
+            });
+        }
+        
+        function setHeartScale(scale) {
+            if (heart) {
+                const box = new THREE.Box3().setFromObject(heart);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const baseScale = 1.5 / maxDim;
+                heart.scale.set(baseScale * scale, baseScale * scale, baseScale * scale);
+                currentScale = scale;
             }
         }
 
@@ -340,19 +435,160 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
+        
+        function setupTouchEvents() {
+            renderer.domElement.addEventListener('touchstart', onTouchStart);
+            renderer.domElement.addEventListener('touchmove', onTouchMove);
+        }
+        
+        function onTouchStart(event) {
+            if (event.touches.length === 1) {
+                touchStartX = event.touches[0].pageX;
+                touchStartY = event.touches[0].pageY;
+            }
+        }
+        
+        function onTouchMove(event) {
+            if (renderer.xr.isPresenting && event.touches.length === 1) {
+                const touchX = event.touches[0].pageX;
+                const touchY = event.touches[0].pageY;
+                const deltaX = touchX - touchStartX;
+                
+                if (heart && Math.abs(deltaX) > 5) {
+                    heart.rotation.y += deltaX * 0.01;
+                    touchStartX = touchX;
+                    touchStartY = touchY;
+                }
+            }
+        }
 
-        function renderLoop() {
-            controls.update();
-            if (isRotating && heart) {
+        function setupXR() {
+            function onSessionStart() {
+                scene.background = null;
+                setupReticle();
+                document.querySelector('.instructions').innerHTML = '<h3>AR Heart Model</h3><p>• Tap on screen to place the heart</p><p>• Use pinch gesture to scale</p>';
+                arOverlay.style.display = 'block';
+            }
+            
+            function onSessionEnd() {
+                scene.background = null;
+                document.querySelector('.instructions').innerHTML = '<h3>AR Heart Model</h3><p>• Tap "Enter AR" to place the heart in your environment</p><p>• Use pinch gesture to scale in AR mode</p><p>• Use buttons below to control rotation and lighting</p>';
+                arOverlay.style.display = 'none';
+                
+                if (heart) {
+                    heart.position.set(0, -0.2, -1);
+                    heart.visible = true;
+                }
+            }
+
+            renderer.xr.addEventListener('sessionstart', onSessionStart);
+            renderer.xr.addEventListener('sessionend', onSessionEnd);
+        }
+        
+        function setupReticle() {
+            const reticleGeometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+            const reticleMaterial = new THREE.MeshBasicMaterial();
+            reticle = new THREE.Mesh(reticleGeometry, reticleMaterial);
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle);
+        }
+        
+        function isArSupported() {
+            return navigator.xr && navigator.xr.isSessionSupported('immersive-ar');
+        }
+        
+        function enterAR() {
+            if (!isArSupported()) {
+                alert('WebXR AR not supported on this device/browser');
+                return;
+            }
+            
+            navigator.xr.requestSession('immersive-ar', {
+                requiredFeatures: ['hit-test', 'dom-overlay'],
+                domOverlay: { root: document.body }
+            }).then(onSessionStarted);
+        }
+        
+        function onSessionStarted(session) {
+            renderer.xr.setReferenceSpaceType('local');
+            renderer.xr.setSession(session);
+            
+            if (heart) {
+                heart.visible = false;
+            }
+            
+            session.addEventListener('select', onSelect);
+            
+            function onSelect() {
+                if (reticle.visible) {
+                    if (heart) {
+                        heart.position.setFromMatrixPosition(reticle.matrix);
+                        heart.visible = true;
+                        reticle.visible = false;
+                        arOverlay.textContent = "Heart placed! Use pinch gesture to resize.";
+                        setTimeout(() => {
+                            arOverlay.style.display = 'none';
+                        }, 3000);
+                    }
+                }
+            }
+        }
+
+        function renderLoop(timestamp, frame) {
+            if (controls) controls.update();
+            
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+                
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then(function(referenceSpace) {
+                        session.requestHitTestSource({ space: referenceSpace }).then(function(source) {
+                            hitTestSource = source;
+                        });
+                    });
+                    
+                    session.addEventListener('end', function() {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+                    
+                    hitTestSourceRequested = true;
+                }
+                
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    
+                    if (hitTestResults.length) {
+                        const hit = hitTestResults[0];
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(hit.getPose(referenceSpace).transform.matrix);
+                        
+                        if (arOverlay.style.display !== 'none') {
+                            arOverlay.textContent = "Surface detected! Tap to place heart.";
+                        }
+                    } else {
+                        reticle.visible = false;
+                        
+                        if (arOverlay.style.display !== 'none') {
+                            arOverlay.textContent = "Move your device to detect surfaces";
+                        }
+                    }
+                }
+            }
+            
+            if (isRotating && heart && !renderer.xr.isPresenting) {
                 heart.rotation.y += 0.005;
             }
+            
             renderer.render(scene, camera);
         }
 
         function setupFallbackTimer() {
             setTimeout(() => {
                 if (loadingScreen.style.display !== 'none' && !heart) {
-                    loadingScreen.innerHTML = `<h2>Loading seems stuck</h2><p>Check console (F12) and network tab for errors. Ensure model files are accessible.</p><button onclick="window.location.reload()">Retry</button>`;
+                    loadingScreen.innerHTML = `<h2>Loading seems stuck</h2><p>Check if model files are accessible.</p><button onclick="window.location.reload()">Retry</button>`;
                 }
             }, 20000);
         }
